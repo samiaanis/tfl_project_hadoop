@@ -6,7 +6,7 @@ pipeline {
         REMOTE_USER     = 'samia'
         REMOTE_PASSWORD = 'WelcomeItc@2026'
 
-        # PostgreSQL connection
+        // PostgreSQL connection
         PG_HOST         = '13.42.152.118'
         PG_PORT         = '5432'
         PG_DB           = 'testdb'
@@ -14,7 +14,7 @@ pipeline {
         PG_PASSWORD     = 'admin123'
         PG_SCHEMA       = 'aparna'
 
-        # HDFS target directory
+        // HDFS target directory
         HDFS_DIR        = '/tmp/tfl_project/hadoop/full_load'
     }
 
