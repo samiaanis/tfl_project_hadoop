@@ -3,13 +3,23 @@ pipeline {
 
     environment {
         REMOTE_HOST     = '13.41.167.97'
-        REMOTE_USER     = 'consultant'
+        REMOTE_USER     = 'samia'
         REMOTE_PASSWORD = 'WelcomeItc@2026'
-        PROJECT_DIR     = '/home/ec2-user/samia'
-        HDFS_DIR        = '/tmp/tfl_project'
+
+        # PostgreSQL connection
+        PG_HOST         = '13.42.152.118'
+        PG_PORT         = '5432'
+        PG_DB           = 'testdb'
+        PG_USER         = 'admin'
+        PG_PASSWORD     = 'admin123'
+        PG_SCHEMA       = 'aparna'
+
+        # HDFS target directory
+        HDFS_DIR        = '/tmp/tfl_project/hadoop/full_load'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo '========================================='
@@ -20,140 +30,56 @@ pipeline {
             }
         }
 
-        stage('Prepare Remote Directory') {
+        stage('Prepare HDFS Directory') {
             steps {
                 echo '========================================='
-                echo 'Stage 2: Create Directories on Cloudera'
+                echo 'Stage 2: Create HDFS Directory'
                 echo '========================================='
                 sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "mkdir -p ${PROJECT_DIR}/sqoop ${PROJECT_DIR}/hive" || true
-
-                    echo "Directories created"
+                        "hdfs dfs -rm -r -f -skipTrash ${HDFS_DIR} || true;
+                         hdfs dfs -mkdir -p ${HDFS_DIR}"
                 '''
             }
         }
 
-        stage('Copy Scripts to Cloudera') {
+        stage('Copy Sqoop Script') {
             steps {
                 echo '========================================='
-                echo 'Stage 3: Copy Sqoop and Hive Scripts'
+                echo 'Stage 3: Copy Sqoop Script'
                 echo '========================================='
                 sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/sqoop_import.sh ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/sqoop/
-
-                    sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/hive_ddl.hql ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/hive/
-
-                    echo "Scripts copied successfully"
+                    sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no \
+                        src/sqoop_import.sh ${REMOTE_USER}@${REMOTE_HOST}:/home/${REMOTE_USER}/
                 '''
             }
         }
 
-        stage('Set Permissions') {
+        stage('Run Sqoop Import') {
             steps {
                 echo '========================================='
-                echo 'Stage 4: Set Execute Permissions'
+                echo 'Stage 4: Run Sqoop Import'
                 echo '========================================='
                 sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "chmod +x ${PROJECT_DIR}/sqoop/sqoop_import.sh"
-
-                    echo "Permissions set"
+                        "PG_HOST=${PG_HOST} PG_PORT=${PG_PORT} PG_DB=${PG_DB} \
+                         PG_USER=${PG_USER} PG_PASSWORD=${PG_PASSWORD} PG_SCHEMA=${PG_SCHEMA} \
+                         HDFS_DIR=${HDFS_DIR} bash /home/${REMOTE_USER}/sqoop_import.sh"
                 '''
             }
         }
 
-        stage('Prepare Staging Directory') {
+        stage('Verify HDFS Output') {
             steps {
                 echo '========================================='
-                echo 'Stage 5: Create local staging directory'
+                echo 'Stage 5: Verify HDFS Data'
                 echo '========================================='
                 sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "mkdir -p /tmp/hadoop/mapred/staging"
-
-                    echo "Staging directory ready"
-                '''
-            }
-        }
-
-        stage('Clean HDFS') {
-            steps {
-                echo '========================================='
-                echo 'Stage 6: Clean HDFS directories'
-                echo '========================================='
-                sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${REMOTE_USER}@${REMOTE_HOST} \
-                        "hdfs dfs -rm -r -f -skipTrash ${HDFS_DIR} || true"
-
-                    echo "HDFS cleaned"
-                '''
-            }
-        }
-
-        stage('Sqoop Import from PostgreSQL to HDFS') {
-            steps {
-                echo '========================================='
-                echo 'Stage 7: Run Sqoop Import'
-                echo '========================================='
-                sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${REMOTE_USER}@${REMOTE_HOST} \
-                        "bash ${PROJECT_DIR}/sqoop/sqoop_import.sh"
-
-                    echo "Sqoop import completed"
-                '''
-            }
-        }
-
-        stage('Run Spark Analysis') {
-            steps {
-                echo '========================================='
-                echo 'Stage 8: Run PySpark Transformations'
-                echo '========================================='
-                sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/tfl_spark_analysis.py ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/
-
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${REMOTE_USER}@${REMOTE_HOST} \
-                        "spark-submit --master local[*] ${PROJECT_DIR}/tfl_spark_analysis.py"
-
-                    echo "Spark analysis completed"
-                '''
-            }
-        }
-
-        stage('Create Hive Tables') {
-            steps {
-                echo '========================================='
-                echo 'Stage 9: Create Hive External Tables'
-                echo '========================================='
-                sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${REMOTE_USER}@${REMOTE_HOST} \
-                        "beeline -u 'jdbc:hive2://ip-172-31-12-74.eu-west-2.compute.internal:10000/default' -f ${PROJECT_DIR}/hive/hive_ddl.hql"
-
-                    echo "Hive tables created"
-                '''
-            }
-        }
-
-        stage('Verify Results') {
-            steps {
-                echo '========================================='
-                echo 'Stage 10: Verify HDFS Data'
-                echo '========================================='
-                sh '''
-                    sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        ${REMOTE_USER}@${REMOTE_HOST} \
-                        "hdfs dfs -ls ${HDFS_DIR} || echo 'HDFS directory not found'"
+                        "hdfs dfs -ls ${HDFS_DIR} || echo 'No data found'"
                 '''
             }
         }
@@ -162,19 +88,13 @@ pipeline {
     post {
         success {
             echo '========================================='
-            echo 'TFL PIPELINE COMPLETED SUCCESSFULLY'
-            echo '========================================='
-            echo "Cloudera: ${REMOTE_HOST}:${PROJECT_DIR}"
-            echo "HDFS: ${HDFS_DIR}"
+            echo 'SQOOP FULL LOAD COMPLETED SUCCESSFULLY'
             echo '========================================='
         }
         failure {
             echo '========================================='
-            echo 'TFL PIPELINE FAILED - check logs above'
+            echo 'SQOOP PIPELINE FAILED — CHECK LOGS'
             echo '========================================='
-        }
-        always {
-            echo 'Pipeline execution completed'
         }
     }
 }
