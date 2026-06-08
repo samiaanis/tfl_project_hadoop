@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         REMOTE_HOST     = '13.41.167.97'
-        REMOTE_USER     = 'samia'
+        REMOTE_USER     = 'consultant'
         REMOTE_PASSWORD = 'WelcomeItc@2026'
 
         // PostgreSQL connection
