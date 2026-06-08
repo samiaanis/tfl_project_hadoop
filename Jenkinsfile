@@ -5,8 +5,8 @@ pipeline {
         REMOTE_HOST     = '13.41.167.97'
         REMOTE_USER     = 'consultant'
         REMOTE_PASSWORD = 'WelcomeItc@2026'
-        PROJECT_DIR     = '/home/consultant/subirna/TFL_Project'
-        HDFS_DIR        = '/tmp/subirna/TFL_project'
+        PROJECT_DIR     = '/home/ec2-user/samia'
+        HDFS_DIR        = '/tmp/tfl_project'
     }
 
     stages {
@@ -28,8 +28,7 @@ pipeline {
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "mkdir -p ${PROJECT_DIR}/sqoop ${PROJECT_DIR}/hive" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "mkdir -p ${PROJECT_DIR}/sqoop ${PROJECT_DIR}/hive" || true
 
                     echo "Directories created"
                 '''
@@ -43,12 +42,10 @@ pipeline {
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/sqoop_import.sh ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/sqoop/ 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        src/sqoop_import.sh ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/sqoop/
 
                     sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/hive_ddl.hql ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/hive/ 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        src/hive_ddl.hql ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/hive/
 
                     echo "Scripts copied successfully"
                 '''
@@ -63,8 +60,7 @@ pipeline {
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "chmod +x ${PROJECT_DIR}/sqoop/sqoop_import.sh" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "chmod +x ${PROJECT_DIR}/sqoop/sqoop_import.sh"
 
                     echo "Permissions set"
                 '''
@@ -79,8 +75,8 @@ pipeline {
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "mkdir -p /tmp/hadoop/mapred/staging" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "mkdir -p /tmp/hadoop/mapred/staging"
+
                     echo "Staging directory ready"
                 '''
             }
@@ -89,13 +85,13 @@ pipeline {
         stage('Clean HDFS') {
             steps {
                 echo '========================================='
-                echo 'Stage 5: Clean HDFS directories'
+                echo 'Stage 6: Clean HDFS directories'
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "hdfs dfs -rm -r -f -skipTrash ${HDFS_DIR} 2>/dev/null || true" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "hdfs dfs -rm -r -f -skipTrash ${HDFS_DIR} || true"
+
                     echo "HDFS cleaned"
                 '''
             }
@@ -104,13 +100,12 @@ pipeline {
         stage('Sqoop Import from PostgreSQL to HDFS') {
             steps {
                 echo '========================================='
-                echo 'Stage 5: Run Sqoop Import (6 tables)'
+                echo 'Stage 7: Run Sqoop Import'
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "bash ${PROJECT_DIR}/sqoop/sqoop_import.sh" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "bash ${PROJECT_DIR}/sqoop/sqoop_import.sh"
 
                     echo "Sqoop import completed"
                 '''
@@ -120,17 +115,15 @@ pipeline {
         stage('Run Spark Analysis') {
             steps {
                 echo '========================================='
-                echo 'Stage 7: Run PySpark Transformations'
+                echo 'Stage 8: Run PySpark Transformations'
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-                        src/tfl_spark_analysis.py ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/ 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        src/tfl_spark_analysis.py ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/
 
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "spark-submit --master local[*] ${PROJECT_DIR}/tfl_spark_analysis.py" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "spark-submit --master local[*] ${PROJECT_DIR}/tfl_spark_analysis.py"
 
                     echo "Spark analysis completed"
                 '''
@@ -140,13 +133,12 @@ pipeline {
         stage('Create Hive Tables') {
             steps {
                 echo '========================================='
-                echo 'Stage 6: Create Hive External Tables'
+                echo 'Stage 9: Create Hive External Tables'
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "beeline -u 'jdbc:hive2://ip-172-31-12-74.eu-west-2.compute.internal:10000/default' -f ${PROJECT_DIR}/hive/hive_ddl.hql" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "beeline -u 'jdbc:hive2://ip-172-31-12-74.eu-west-2.compute.internal:10000/default' -f ${PROJECT_DIR}/hive/hive_ddl.hql"
 
                     echo "Hive tables created"
                 '''
@@ -156,13 +148,12 @@ pipeline {
         stage('Verify Results') {
             steps {
                 echo '========================================='
-                echo 'Stage 7: Verify HDFS Data'
+                echo 'Stage 10: Verify HDFS Data'
                 echo '========================================='
                 sh '''
                     sshpass -p "${REMOTE_PASSWORD}" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                         ${REMOTE_USER}@${REMOTE_HOST} \
-                        "hdfs dfs -ls ${HDFS_DIR} 2>/dev/null || echo 'HDFS directory not found'" 2>&1 | \
-                        grep -v "ITC Big Data Lab" | grep -v "Commands:" | grep -v "HDFS home:" | grep -v "━" || true
+                        "hdfs dfs -ls ${HDFS_DIR} || echo 'HDFS directory not found'"
                 '''
             }
         }
