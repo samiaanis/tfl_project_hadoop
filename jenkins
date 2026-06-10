@@ -1,0 +1,104 @@
+pipeline {
+
+agent any
+
+environment {
+    REMOTE_HOST = '13.41.167.97'
+    REMOTE_USER = 'consultant'
+    REMOTE_PASSWORD = 'WelcomeItc@2026'
+    PROJECT_DIR = '/tmp/tfl_hadoop_project'
+}
+
+stages {
+
+    stage('Checkout Code') {
+        steps {
+            checkout scm
+        }
+    }
+
+    stage('Prepare Remote Directory') {
+        steps {
+            sh '''
+                sshpass -p "${REMOTE_PASSWORD}" ssh \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${REMOTE_USER}@${REMOTE_HOST} "
+                    mkdir -p ${PROJECT_DIR}
+                    mkdir -p ${PROJECT_DIR}/sqoop
+                "
+            '''
+        }
+    }
+
+    stage('Copy Sqoop Script') {
+        steps {
+            sh '''
+                sshpass -p "${REMOTE_PASSWORD}" scp \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                src/sqoop_import.sh \
+                ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/sqoop/
+            '''
+        }
+    }
+
+    stage('Set Permissions') {
+        steps {
+            sh '''
+                sshpass -p "${REMOTE_PASSWORD}" ssh \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${REMOTE_USER}@${REMOTE_HOST} "
+                    chmod +x ${PROJECT_DIR}/sqoop/sqoop_import.sh
+                "
+            '''
+        }
+    }
+
+    stage('Run Sqoop Import') {
+        steps {
+            sh '''
+                sshpass -p "${REMOTE_PASSWORD}" ssh \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${REMOTE_USER}@${REMOTE_HOST} "
+                    cd ${PROJECT_DIR}/sqoop
+                    ./sqoop_import.sh
+                "
+            '''
+        }
+    }
+
+    stage('Verify HDFS') {
+        steps {
+            sh '''
+                sshpass -p "${REMOTE_PASSWORD}" ssh \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                ${REMOTE_USER}@${REMOTE_HOST} "
+                    hdfs dfs -ls /tmp/tfl_project_hadoop
+                "
+            '''
+        }
+    }
+
+}
+
+post {
+
+    success {
+        echo '==================================='
+        echo 'Pipeline completed successfully!'
+        echo '==================================='
+    }
+
+    failure {
+        echo '==================================='
+        echo 'Pipeline failed!'
+        echo '==================================='
+    }
+
+}
+
+}
