@@ -23,10 +23,8 @@ stages {
                 sshpass -p "${REMOTE_PASSWORD}" ssh \
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
-                ${REMOTE_USER}@${REMOTE_HOST} "
-                    mkdir -p ${PROJECT_DIR}
-                    mkdir -p ${PROJECT_DIR}/sqoop
-                "
+                ${REMOTE_USER}@${REMOTE_HOST} \
+                "mkdir -p ${PROJECT_DIR}"
             '''
         }
     }
@@ -38,20 +36,19 @@ stages {
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
                 src/sqoop_import.sh \
-                ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/sqoop/
+                ${REMOTE_USER}@${REMOTE_HOST}:${PROJECT_DIR}/
             '''
         }
     }
 
-    stage('Set Permissions') {
+    stage('Set Execute Permission') {
         steps {
             sh '''
                 sshpass -p "${REMOTE_PASSWORD}" ssh \
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
-                ${REMOTE_USER}@${REMOTE_HOST} "
-                    chmod +x ${PROJECT_DIR}/sqoop/sqoop_import.sh
-                "
+                ${REMOTE_USER}@${REMOTE_HOST} \
+                "chmod +x ${PROJECT_DIR}/sqoop_import.sh"
             '''
         }
     }
@@ -62,10 +59,8 @@ stages {
                 sshpass -p "${REMOTE_PASSWORD}" ssh \
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
-                ${REMOTE_USER}@${REMOTE_HOST} "
-                    cd ${PROJECT_DIR}/sqoop
-                    ./sqoop_import.sh
-                "
+                ${REMOTE_USER}@${REMOTE_HOST} \
+                "cd ${PROJECT_DIR} && bash sqoop_import.sh"
             '''
         }
     }
@@ -76,9 +71,8 @@ stages {
                 sshpass -p "${REMOTE_PASSWORD}" ssh \
                 -o StrictHostKeyChecking=no \
                 -o UserKnownHostsFile=/dev/null \
-                ${REMOTE_USER}@${REMOTE_HOST} "
-                    hdfs dfs -ls /tmp/tfl_project_hadoop
-                "
+                ${REMOTE_USER}@${REMOTE_HOST} \
+                "hdfs dfs -ls /tmp/tfl_project_hadoop"
             '''
         }
     }
@@ -88,15 +82,15 @@ stages {
 post {
 
     success {
-        echo '==================================='
-        echo 'Pipeline completed successfully!'
-        echo '==================================='
+        echo '======================================='
+        echo 'Pipeline completed successfully'
+        echo '======================================='
     }
 
     failure {
-        echo '==================================='
-        echo 'Pipeline failed!'
-        echo '==================================='
+        echo '======================================='
+        echo 'Pipeline failed'
+        echo '======================================='
     }
 
 }
