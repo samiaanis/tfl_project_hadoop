@@ -6,7 +6,7 @@ environment {
     REMOTE_HOST = '13.41.167.97'
     REMOTE_USER = 'consultant'
     REMOTE_PASSWORD = 'WelcomeItc@2026'
-    PROJECT_DIR = '/tmp/tfl_hadoop_project'
+    PROJECT_DIR = '/home/consultant/tfl_hadoop_project'
 }
 
 stages {
